@@ -25,6 +25,7 @@
 #include "TMath.h"
 #include "TString.h"
 #include "TRandom.h"
+#include "TVector3.h"
 #include "TLatex.h"
 #include "TTree.h"
 //#include "TVector3.h"
@@ -90,6 +91,7 @@ double Ecal_ring_Offset[24] = {0,0,851.7145938,857.71,902.76,917.6011,952.31,919
                         983.16,1018.03,1016.90,1030.19,1053.499,1057.678,1012.86,1162.07,1090.155,1077.42,1093.25};
 
 static ofstream output1 ("XYZHitPatterns.txt");
+static ofstream output2 ("SolidAngleCorr.txt");
 /*
 extern PARS Pars;
 extern EXCHANGE exchange;
@@ -359,6 +361,8 @@ TCutG *massLCut,*massRCut;
 TH2F *DoubleHitSector;
 TH2F *DoubleHitSectorENG;
 
+TH3F *RingPlot;
+
 //TH1D *CryTheta1,*CryPhi1,*CryTheta2,*CryPhi2,*CryTheta3,*CryPhi3,*CryTheta4,*CryPhi4,*CryTheta5,*CryPhi5;
 //TH1D *CryTheta6,*CryPhi6,*CryTheta7,*CryPhi7,*CryTheta8,*CryPhi8,*CryTheta9,*CryPhi9,*CryTheta10,*CryPhi10,*CryTheta11,*CryPhi11,*CryTheta12,*CryPhi12;
 
@@ -380,25 +384,30 @@ TH2F *ParticleAngle;
 
 //TH1D *Sectors[32];
 
+TH2F *SiCdAngleMap;
+
 TH1D *LabEnoTG_C;
 
 TH1D *histo_crp;
 
 TH1D *SectorMultiEng;
 TH1D *RingMultiEng;
+
+TH1D *Calculated_S;
 TH2F *Qplot;
 
 TH3F *OptimalXY;
 
-TH2F *OptimalE;
+TH2F *OptimalE4;
+TH2F *OptimalE5;
 
 TH3F *hitpattern;
 TH2F *hitpattern2d_cry1;
 TH2F *hitpattern2d_cry2;
 TH2F *hitpattern2d_cry3;
 TH2F *hitpattern2d_cry4;
-TH2F *ggE;
-TH2F *ggEBK;
+TH2F *ggE, *ggEF;
+TH2F *ggEBK, *ggEBKF;
 TH2F *GTENCAL, *GTENCAL2;
 TH2F *BetaCal;
 TH2F *SiCDVCRY1;
@@ -426,12 +435,14 @@ TH2F *NEgamTKP,*NEgamTKT,*NEgamTKB;
 TH2F *nfomP,*NfomP;
 TH2F *nfomT,*NfomT;
 TH2F *nfomB,*NfomB;
-
+TH2F *SiCdMul2,*SiCdMul3;
+TH2F *SiCdMul4;
 TH2F *ggTKP,*ggTKT;
 
 TH3F *gggTKP;
 
 TH1D *h1_tgppac, *h1_tgppac88, *h1_ene88, *LabEnoTG, *LabEinTG, *LabEoffTG, *h1_ene882, *GateSpectrum1,*GateSpectrum2,*GateSpectrum3,*GateSpectrum4,*LabEoffTG_C,*LabEinTG_C;
+TH1D *LabEnoTGF, *LabEinTGF, *LabEoffTGF;
 TH2F *h2_ene88;
 TH2F *SECT_ChanVPOS,*RING_ChanVPOS,*SECT_ChanVEnergy,*RING_ChanVEnergy;
 TH1D *bank88_hitpat;
@@ -550,11 +561,11 @@ int map_SiCD(SiCD_struct *SiCD){
     if(SiCD->phi_Pb < 0)SiCD->phi_Pb+= 2. * TMath::Pi();
 
     //================[Flips xy coordinates to negative axis.]==================================================|
-    if(SiCD->phi_Pb > TMath::Pi()){
-      SiCD->phi_C = SiCD->phi_Pb - TMath::Pi();
-    }else{
-      SiCD->phi_C = SiCD->phi_Pb + TMath::Pi();
-    }  
+   // if(SiCD->phi_Pb > TMath::Pi()){
+  //    SiCD->phi_C = SiCD->phi_Pb - TMath::Pi();
+  //  }else{
+    //  SiCD->phi_C = SiCD->phi_Pb + TMath::Pi();
+  //  }  
 
     //================[Flips xy coordinates to negative axis.]==================================================|
 
@@ -608,19 +619,8 @@ int sup_sicd(){
   TH2F *mkTH2F (char *, char *, int, double, double, int, double, double);
   TH3F *mkTH3F (char *, char *, int, double, double, int, double, double,int, double, double);
 
- // for (int i = 0; i < 32; ++i)
- // {
- //   Sectors[i] = mkTH1D(Form("Sector_%i",i+1),Form("Sector_%i Energy Spectrum",i+1),100,130,180);
- // }
-  
-
-//
- // hitpattern = mkTH3F("GRETINAHitPat","XYZ in mm ",600,-300,300,600,-300,300,600,-300,300);
- // hitpattern->SetYTitle("Y-axis in mm");
- // hitpattern->SetXTitle("X-axis in mm");
- // hitpattern->SetZTitle("Z-axis in mm");
-  h1_ene88 = mkTH1D("ene88Sector","Calibrated energy of SiCD; Energy (keV)",50000,0,50000);
-  h1_ene882 = mkTH1D("ene88Ring","Calibrated energy of SiCD; Energy (keV)",50000,0,50000);
+  h1_ene88 = mkTH1D("ene88Sector","Calibrated energy of SiCD; Energy (keV)",700,0,70);
+  h1_ene882 = mkTH1D("ene88Ring","Calibrated energy of SiCD; Energy (keV)",700,0,70);
 
   h2_ene88 = mkTH2F("ene88vsPhiAng","Energy vs. phi angle of detection",100,130,180,50000,0,50000);
 
@@ -629,11 +629,20 @@ int sup_sicd(){
   SiCd_TS_S = mkTH2F("SiCd_TS_S", "SiCD SECTOR Time Stamp (ns) vs. Events",10000,0,1000000,100,7700,9730);
 
   GTENCAL = mkTH2F("SGTENCAL", "GRETINA Energy (Doppler CORRECTED) vs. Crystal number",100,40,140,6000,0,3000);
-    GTENCAL2 = mkTH2F("SGTENCAL_MODE2", "GRETINA Energy (Doppler CORRECTED) vs. Crystal number",200,0,200,6000,0,3000);
 
   gMultiplicity = mkTH1D("GMultiplicity","Gamma Mulitplicity",20,0,20); 
 
   GidMul2 = mkTH2F("ggMult2", "Hit 1 vs Hit 2 (ids)",90,40,130,90,40,130);
+
+
+  SiCdMul3 = mkTH2F("SiCdMul3", "Energy Sharing Plot between adjacent SiCd rings/sectors; Mulitplicity = 3",10,-5,5,110,0,110);
+   SiCdMul2 = mkTH2F("SiCdMul2", "Energy Sharing Plot between adjacent SiCd rings/sectors; Mulitplicity = 2",10,-5,5,110,0,110);
+   SiCdMul4 = mkTH2F("SiCdMul4", "Energy Sharing Plot between adjacent SiCd rings/sectors; Mulitplicity = 4",10,-5,5,110,0,110);
+
+  RingPlot = mkTH3F("Ring_Hit_Distribution", "Ring",8,1,9,10,-5,5,100,0,100);
+  RingPlot->SetXTitle("Mulitplicity");
+  RingPlot->SetYTitle("Channel Id wrt. First Hit");
+  RingPlot->SetZTitle("Percentage of Energy deposition from total");
 
   RingEnergyCutSpectrum = mkTH1D("EnergyCut_Ring","110Cd Spectrum with Ring Energy Cut ",2000,0,2000);
   RingTimeCutSpectrum = mkTH1D("TimeCut_Ring","110Cd Spectrum with Ring Time Cut ",2000,0,2000);
@@ -648,23 +657,22 @@ int sup_sicd(){
   sectVsPhiAngle->SetYTitle("Counts");
   sectVsPhiAngle->SetXTitle("Phi Angle");
 
+  OptimalE4 = mkTH2F("OptimalE_ring4","delE vs Doppler Corrected Energy",5000,4.0,4.5,100,600,700);
+ // OptimalE5 = mkTH2F("OptimalE_ring5","delE vs Doppler Corrected Energy",2000,3,5,100,600,700);
 
-  OptimalXY = mkTH3F("OptimalXY","XY Position vs Doppler Corrected Energy",200,-10,10,200,-10,10,40,640,680);
+  SiCdAngleMap = mkTH2F("SiCd Angle map","phi vs Theta",64,-360,360,50, 130, 180);
 
-  OptimalE = mkTH2F("OptimalE","delE vs Doppler Corrected Energy",4000,0,4,100,600,700);
+  Qplot = mkTH2F("QPlot", "Q-value (expected particle energy - detected) Vs Theta_p",50,130,180,100, -50, 50);
 
- // OptimalXY->SetYTitle("Y adjustment factor in mm");
- // OptimalXY->SetXTitle("X adjustment factor in mm");
- // OptimalXY->SetZTitle("Doppler Corrected Energy in keV");
-
-
-  Qplot = mkTH2F("QPlot", "Q-value (expected particle energy - detected) Vs Theta_p",50,130,180,60000, 0, 60000);
-  SectorMultiEng = mkTH1D("SectorMultiEng","Sector Mulitplicity = 2, Energy Spectrum",50000,0,50000);
-  RingMultiEng = mkTH1D("RingMultiEng","Ring Mulitplicity = 2, Energy Spectrum",50000,0,50000);
+  SectorMultiEng = mkTH1D("SectorMultiEng","Sector Mulitplicity = 2, Energy Spectrum",700,0,70);
+  RingMultiEng = mkTH1D("RingMultiEng","Ring Mulitplicity = 2, Energy Spectrum",700,0,70);
 
   BetaCal = mkTH2F("BetaCal", "Beta value comparisons of Pre-Cal vs. now-Cal", 1000, 0, 1.0,1000,0,1.0);
   ggE = mkTH2F("ggE", Form("#gamma-#gamma, t_{#gamma-#gamma} < 50 && t_{#gamma-#gamma} > 0"), 3000, 0, 3000,3000,0,3000);
   ggEBK = mkTH2F("ggEBK", Form("#gamma-#gamma, t_{#gamma-#gamma} < 150 && t_{#gamma-#gamma} > 100"), 3000, 0, 3000,3000,0,3000);
+
+  ggEF = mkTH2F("ggE_fine", Form("#gamma-#gamma (fine-grain), t_{#gamma-#gamma} < 50 && t_{#gamma-#gamma} > 0"), 6000, 0, 3000,6000,0,3000);
+  ggEBKF = mkTH2F("ggEBK_fine", Form("#gamma-#gamma (fine-grain), t_{#gamma-#gamma} < 150 && t_{#gamma-#gamma} > 100"), 6000, 0, 3000,6000,0,3000);
 
 
 ///////
@@ -675,7 +683,6 @@ int sup_sicd(){
   SiCD_RawERing_ESec = mkTH2F("SiCD_RawERing_ESec", "Gain match: Raw Energy Ring / Cal Energy Sector; Detector ID Ring (ch); RawE_Ring/CalE_Sector",33,-0.5,32.5,binSiRawE,0,200);
   //
   SiCD_XY = mkTH2F("SiCD_XY", "XY image (randomised for each pads) in SiCD plane (Beam direction: #odot); X in GT coordinate (down) /mm; Y in GT coordinate (left when looking downstream) /mm", 1000,-50,50,1000,-50,50);
-  // = mkTH2F("bank88_sicd_thetaphi","SiCD Theta Phi map; Theta (deg); Phi (deg)", 100, 130, 180, 360, 0, 360);
 
   diff_SiCDTS = mkTH1D("diff_SiCDTS","Time-Stamp difference btw ring and sector; LED time (ring - sector) / ns; counts", binDiffTS, minDiffTS, maxDiffTS);
   SiCDERatio_diffTS_sector = mkTH2F("SiCDERatio_diffTS_sector", "Energy of sector vs time difference of ring and sector; LED time (ring -sector) /ns; ", binDiffTS, minDiffTS, maxDiffTS, 5000, 0.5, 5000.5);
@@ -691,24 +698,26 @@ int sup_sicd(){
   Si_sect_diffTS2 = mkTH1D("Si_sect_diffTS_mode2", "Time-Stamp difference btw sector and GT; TS diff (SiCD_sector - GT)/ns; counts", 1000, -500, 500);
   Si_ring_diffTS2 = mkTH1D("Si_ring_diffTS_mode2", "Time-Stamp difference btw ring and GT; TS diff (SiCD_ring - GT)/ns; counts", binDiffTS, minDiffTS, maxDiffTS);
  
- // SiCDE_diffTS = mkTH2F("SiCDE_diffTS","SiCD energy vs Time stamp difference between GT and Total energy in SiCD; TS diff (SiCD_sector - GT) / ns; Energy of SiCD sector / MeV", binDiffTS, minDiffTS, maxDiffTS, binSiE, minSiE, maxSiE);
   DoppEPb_diffTS = mkTH2F("DoppEPb_diffTS", "Doppler corrected Pb Energy vs Time-Stamp difference between GT and SiCD; TS diff (SiCD_sector - GT) / ns; Doppler corrected energy of Pb (keV)", binDiffTS, minDiffTS, maxDiffTS, binGamE2D, minGamE, maxGamE);
-  //  labE_diffTS = mkTH2F("labE_diffTS", "lab Energy vs Time-Stamp difference between GT and SiCD; TS diff (SiCD_sector - GT) / ns; Doppler corrected energy of Pb (keV)", binDiffTS, minDiffTS, maxDiffTS, binGamE2D, minGamE, maxGamE);
 
-  ParticleAngle = mkTH2F("ParticleVTheta", "110Cd Particle Energy (KeV) Vs. Theta Angle (Degrees)",50, 130, 180,80000,0,80000);
+  ParticleAngle = mkTH2F("ParticleVTheta", "110Cd Particle Energy (KeV) Vs. Theta Angle (Degrees)",50, 130, 180,20000,0,20000);
 
-  // Check doppler corrections
-  //doppE_fixbeta = mkTH1D("doppE_fixbeta",Form("Doppler corrected energy with a fixed beta; Energy (keV); Counts / %i keV",(maxGamE-minGamE)/binGamE),binGamE, minGamE, maxGamE);
-    //dcfac_corr = mkTH2F("dcfac_corr","Correlation of Doppler factors; dcfactor C; dcfactor Pb",500, 0.8, 1.2, 500, 0.8, 1.2);
-  //
 
-  LabEnoTG_C = mkTH1D("LabEnoTG_C", Form("energy for Fusion Evap; Energy (keV); Counts / %.1f keV",(maxGamE-minGamE)/binGamE),binGamE, minGamE, maxGamE);
-  LabEinTG_C = mkTH1D("LabEinTG_C", Form("energy for Fusion Evap; Energy (keV); Counts / %.1f keV",(maxGamE-minGamE)/binGamE),binGamE, minGamE, maxGamE);
-  LabEoffTG_C = mkTH1D("LabEoffTG_C", Form("energy for Fusion Evap; Energy (keV); Counts / %.1f keV",(maxGamE-minGamE)/binGamE),binGamE, minGamE, maxGamE);
+  Calculated_S = mkTH1D("ParticleNRGSpec", "Particle Energy Spectrum Calculated", 700, 0, 70);
+
+  LabEnoTG_C = mkTH1D("LabEnoTG_C", Form("energy for Lead Lines; Energy (keV); Counts / %.1f keV",(maxGamE-minGamE)/binGamE),binGamE, minGamE, maxGamE);
+  LabEinTG_C = mkTH1D("LabEinTG_C", Form("energy for Lead Lines; Energy (keV); Counts / %.1f keV",(maxGamE-minGamE)/binGamE),binGamE, minGamE, maxGamE);
+  LabEoffTG_C = mkTH1D("LabEoffTG_C", Form("energy for Lead Lines; Energy (keV); Counts / %.1f keV",(maxGamE-minGamE)/binGamE),binGamE, minGamE, maxGamE);
 
   LabEnoTG = mkTH1D("LabEnoTG", Form("energy for 110Cd; Energy (keV); Counts / %.1f keV",(maxGamE-minGamE)/binGamE),binGamE, minGamE, maxGamE);
   LabEinTG = mkTH1D("LabEinTG", Form("energy for 110Cd; Energy (keV); Counts / %.1f keV",(maxGamE-minGamE)/binGamE),binGamE, minGamE, maxGamE);
   LabEoffTG = mkTH1D("LabEoffTG", Form("energy for 110Cd; Energy (keV); Counts / %.1f keV",(maxGamE-minGamE)/binGamE),binGamE, minGamE, maxGamE);
+
+
+  LabEnoTGF = mkTH1D("LabEnoTG_fine", Form("energy for 110Cd (fine_grain); Energy (keV); Counts / %.1f keV",0.5),6000, 0, 6000);
+  LabEinTGF = mkTH1D("LabEinTG_fine", Form("energy for 110Cd (fine_grain); Energy (keV); Counts / %.1f keV",0.5),6000, 0, 6000);
+  LabEoffTGF = mkTH1D("LabEoffTG_fine", Form("energy for 110Cd (fine_grain); Energy (keV); Counts / %.1f keV",0.5),6000, 0, 6000);
+
 
   doppE_anglePb = mkTH2F("doppE_anglePb","doppE_angle Pb;opening angle cos(theta);enegry (keV)",100,-1,1,binGamE, minGamE, maxGamE);
   doppE_thetaPb = mkTH2F("doppE_thetaPb", "Theta txt evaluated vs. calculated Theta ", 100,130,180,binGamE, minGamE, maxGamE);
@@ -742,6 +751,8 @@ sectVsPhiAngle->Delete();
 sectVsPhiAngle->Delete();
 sectVsPhiAngle->Delete();
 OptimalXY->Delete();
+OptimalE4->Delete();
+OptimalE5->Delete();
 Qplot->Delete();
 SectorMultiEng->Delete();
 RingMultiEng->Delete();

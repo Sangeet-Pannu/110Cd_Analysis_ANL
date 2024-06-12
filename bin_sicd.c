@@ -8,8 +8,13 @@ int bin_sicd(GEB_EVENT * GEB_event)
  int i, k;
   int nsubev;
   char strg[128];
+int SiCdCount=0;
 
-  
+int HitChanRing[8]= {0,0,0,0,0,0,0,0};
+float HitEnergyRing[8] = {0,0,0,0,0,0,0,0};
+
+int HitChanSect[8]= {0,0,0,0,0,0,0,0};
+float HitEnergySect[8] = {0,0,0,0,0,0,0,0};
  // float GT_offset[150];
 
   unsigned long long int tsEarly=0;
@@ -25,26 +30,6 @@ int bin_sicd(GEB_EVENT * GEB_event)
   FILE *fp2;
   int i1;
   float r1,r2;
-
-  //COINCIDENCE CoinEvent;
-  //GTEVENT3 GTEvent3;
- // printf("HERE IN LINE 24");
-     /*
-        fp2 = fopen ("152Eu_Calibrationfile.txt", "r");
-            int stp = fscanf (fp2, "%i %f %f", &i1, &r1, &r2);
-              while (stp == 3)
-                {
-                  
-                  GT_gain[i1] = r1;
-                  GT_offset[i1] = r2;
-                 // printf ("\nCC det/offset/gain %3i %6.3f %9.6f", i1, GT_gain[i1], GT_offset[i1]);
-                  stp = fscanf (fp2, "%i %f %f", &i1, &r1, &r2);
-                  counter++;
-                };
-            //  printf ("done, read %i calibration \n", counter);
-              fclose (fp2);
-  
-*/
 
   ////for SiCD detector
   GTEVENT Event;
@@ -130,6 +115,7 @@ int bin_sicd(GEB_EVENT * GEB_event)
     /////// for Si detector
     if(GEB_event->ptgd[i]->type != GEB_TYPE_GT_MOD29) continue;
     firsttime++;
+    SiCdCount++;
     pos=0;
     ncrystal=0;
     bank88ts=GEB_event->ptgd[i]->timestamp;
@@ -287,7 +273,7 @@ int bin_sicd(GEB_EVENT * GEB_event)
       Event.seg_id = Event.ge_id * 50 + Event.channel;
 
      
-        
+      
 
         /* count the crystals we have processed */
         if (Pars.CurEvNo <= Pars.NumToPrint)
@@ -340,7 +326,15 @@ int bin_sicd(GEB_EVENT * GEB_event)
 
       if((float) rawE < 1000.0) continue;
 
+      if(Event.ge_id==0){
+        HitChanRing[i] = Event.channel;
+        HitEnergyRing[i] = ((float) rawE );
+      }
 
+       if(Event.ge_id==3){
+        HitChanSect[i] = Event.channel;
+        HitEnergySect[i] = ((float) rawE );
+      }
 
       if( BigEnergyRing <=((float) rawE ) && Event.ge_id==0){
 
@@ -406,20 +400,6 @@ int bin_sicd(GEB_EVENT * GEB_event)
 
           }
 
-          if (Pars.CurEvNo <= 0)
-          {
-            printf("bin_sicd SECTOR PARAMETERS: \n");
-            printf ("0x%4.4x ", Event.hdr[0]);
-            printf ("\nmodule_id = %i ", Event.module_id);
-            printf ("\ncrystal_id = %i ", Event.crystal_id);
-            printf ("\ndigitizer_id = %i ", Event.digitizer_id);
-            printf ("\nchan_id = %i ", Event.chan_id);
-            printf ("\nge_id = %i ", Event.ge_id);
-            printf ("\nchannel = %i ", Event.channel);
-            printf("\nEnergy of SiCd is: %f\n",((float) rawE));
-            printf ("\n Time Stamp of hit is = %f ", static_cast<Double_t>((GEB_event->ptgd[i]->timestamp/2)));
-            printf ("\n");
-          }
 
        
         } 
@@ -433,19 +413,9 @@ int bin_sicd(GEB_EVENT * GEB_event)
 //--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   
   int value_ink = map_SiCD(&SiCD_event); // Convert digitizer channel to id and theta, phi, beta
-  int value_ink2 = map_SiCD(&SiCD_Secevent);
+ 
 
-  if(SiCD_Secevent.detid_ring != -90 && doubleHitring == true)
-  {
-
-    RingMultiEng->Fill(SiCD_Secevent.calE_ring);
-  }
-
-  if(SiCD_Secevent.detid_sector != -90 && doubleHitSector== true)
-  {
-    SectorMultiEng->Fill(SiCD_Secevent.calE_sector);
-  }
-
+  
   if(SiCD_event.detid_ring == -9 || SiCD_event.detid_sector == -1 || SiCD_event.detid_ring == -1 || SiCD_event.detid_ring == 1 || SiCD_event.detid_ring == 2) {
       
     return (0);
@@ -456,6 +426,15 @@ int bin_sicd(GEB_EVENT * GEB_event)
   if(SiCD_event.id_sector == 0 || SiCD_event.id_sector == 20) return (0); //There is no 0 or 20 but they fill up with anamolous hits.
 
   //---------------[SiCd Particle Energy Cut]--------------------------|
+  int gammaCount=0;
+  for (i = 0; i < GEB_event->mult; i++)
+    {
+          
+          if (GEB_event->ptgd[i]->type != GEB_TYPE_TRACK) continue;
+          gammaCount++;
+
+    }
+
 
   //---------------[SiCd Particle Energy Cut]--------------------------|
   int id_ring = SiCD_event.detid_ring;
@@ -476,7 +455,42 @@ int bin_sicd(GEB_EVENT * GEB_event)
   //---------------[Target Like Particle]--------------------------|
 
 
+  double SectorTotalEnergy=0;
+  double RingTotalEnergy=0;
 
+  if (((SiCD_event.calE_sector>=5000 && SiCD_event.calE_sector<=13000)&&(SiCD_event.calE_ring>=6000 && SiCD_event.calE_ring<=13000)))
+  {
+   for (int i = 0; i < 8; ++i)
+    {
+      SectorTotalEnergy += HitEnergySect[i];
+      RingTotalEnergy += HitEnergyRing[i]; 
+    }
+
+     for (int i = 0; i < 8; ++i)
+    {
+      if(SiCdCount<=i) continue;
+
+      RingPlot->Fill(SiCdCount,HitChanRing[0]-HitChanRing[i],(HitEnergyRing[i]/(RingTotalEnergy))*100.0);
+      RingPlot->Fill(SiCdCount,HitChanSect[0]-HitChanSect[i],(HitEnergySect[i]/(SectorTotalEnergy))*100.0);
+
+      if(SiCdCount==2){
+      SiCdMul2->Fill(HitChanRing[0]-HitChanRing[i],(HitEnergyRing[i]/(RingTotalEnergy))*100.0);
+      SiCdMul2->Fill(HitChanSect[0]-HitChanSect[i],(HitEnergySect[i]/(SectorTotalEnergy))*100.0);
+    }
+
+    if(SiCdCount==3){
+      SiCdMul3->Fill(HitChanRing[0]-HitChanRing[i],(HitEnergyRing[i]/(RingTotalEnergy))*100.0);
+      SiCdMul3->Fill(HitChanSect[0]-HitChanSect[i],(HitEnergySect[i]/(SectorTotalEnergy))*100.0);
+    }
+
+    if(SiCdCount==4){
+      SiCdMul4->Fill(HitChanRing[0]-HitChanRing[i],(HitEnergyRing[i]/(RingTotalEnergy))*100.0);
+      SiCdMul4->Fill(HitChanSect[0]-HitChanSect[i],(HitEnergySect[i]/(SectorTotalEnergy))*100.0);
+    }
+
+    }
+
+  }
   //---------------[Beam Like Particle]--------------------------|
 
   double beta_Pb=SiCD_event.beta_Pb;
@@ -511,15 +525,25 @@ int bin_sicd(GEB_EVENT * GEB_event)
 
 
   
+   if(gammaCount<1) return 0;
+
+   if(SiCdCount == 2)
+  {
+    SectorMultiEng->Fill((SiCD_event.calE_sector/1000.0)*4.937);
+  }
 
   //---------------[SiCd Particle Energy and TIMING Histograms]--------------------------|
-   h1_ene88->Fill(SiCD_event.calE_sector);
-   h1_ene882->Fill(SiCD_event.calE_ring);
+   h1_ene88->Fill((SiCD_event.calE_sector/1000.0)*4.937);
+   h1_ene882->Fill((SiCD_event.calE_ring/1000.0)*4.937);
   //---------------[Histogram Build for X,Y plot of SiCD Hits]--------------------------|
 
-    double R_Si = 11. + ((double)id_ring - 0.5)*1.0 + gRandom->Uniform(-0.85,0.85); //11 mm is the smallest inner radius of disk.
+   if((SiCD_event.calE_ring/1000.0)*4.937>=25 && (SiCD_event.calE_ring/1000.0)*4.937 <=35){
+    gMultiplicity->Fill(SiCdCount);
+   }
+
+    double R_Si = 11. + ((double)id_ring - 0.5)*1.0 + gRandom->Uniform(-0.50,0.50); //11 mm is the smallest inner radius of disk.
                     
-    double Phi_Si = ((degphi_Pb - gRandom->Uniform(-1.0,1.0) * 5.5)) * TMath::DegToRad();  
+    double Phi_Si = ((degphi_Pb - gRandom->Uniform(-1.0,1.0) * 5.625)) * TMath::DegToRad();  
     Phi_Si = -Phi_Si; //by Sici
 
     double X_Si = R_Si * TMath::Cos(Phi_Si)+0.274;
@@ -529,10 +553,26 @@ int bin_sicd(GEB_EVENT * GEB_event)
     double r_sph = sqrt(pow(X_Si,2)+pow(Y_Si,2)+pow(40.0,2));
                                     
     double degtheta_Pb_calculated=TMath::Pi()-(acosf(40.0/(r_sph)));
-    
+      
+    SiCdAngleMap->Fill(Phi_Si*TMath::RadToDeg(),degtheta_Pb_calculated*TMath::RadToDeg());
 
-   // hitpattern->Fill(X_Si,Y_Si,40);
-    h2_ene88->Fill(-Phi_Si*TMath::RadToDeg(),SiCD_event.calE_sector);
+  //---------------[For Phi Correction from off-centered beam]--------------------------|
+
+    TVector3 v1(R_Si * TMath::Cos(Phi_Si+TMath::Pi()),R_Si * TMath::Sin(Phi_Si)+TMath::Pi(),40.0); //Original Position 2 180 degrees from 1.
+    TVector3 v2(R_Si * TMath::Cos(Phi_Si),R_Si * TMath::Sin(Phi_Si),40.0); //Original Position 1
+    TVector3 v3(-0.274,+4.608,0); //Shift of Beam Center
+
+    TVector3 v4 = v3 - v2;
+    TVector3 v5 = v3 - v1;
+
+    double R1 = sqrt(pow(v4.X(),2)+pow(v4.Y(),2)+pow(v4.Z(),2)); // the counts to be corrected..
+    double R2 = sqrt(pow(v5.X(),2)+pow(v5.Y(),2)+pow(v5.Z(),2));
+
+    double ShiftC = pow(R1,2)/pow(R2,2);
+
+    if(Pars.CurEvNo <= 1000 && id_ring == 4) output2 << degphi_Pb << "\t" << R1 << "\t" << R2 << "\t" <<degtheta_Pb_calculated*TMath::RadToDeg()<< "\t" << ShiftC << endl;
+
+   h2_ene88->Fill(Phi_Si*TMath::RadToDeg(),SiCD_event.calE_sector);
   //---------------[Histogram Build for X,Y plot of SiCD Hits]--------------------------|
 
    //---------------[Kinematics Fit Result Function Parameters]--------------------------|
@@ -559,7 +599,9 @@ int bin_sicd(GEB_EVENT * GEB_event)
    double truebeamENG = Ebeam - SRIMCalENG*(0.25/cosf(TMath::Pi()-degtheta_Pb_calculated));
 
     ParticleAngle->Fill(degtheta_Pb_calculated*TMath::RadToDeg(),truebeamENG*1000);
-    Qplot->Fill(degtheta_Pb_calculated*TMath::RadToDeg(),(truebeamENG*1000)-SiCD_event.calE_ring);
+    Qplot->Fill(degtheta_Pb_calculated*TMath::RadToDeg(),(truebeamENG)-(SiCD_event.calE_ring/1000.0)*4.937);
+
+    Calculated_S->Fill((truebeamENG));
 
     if(!((abs(Si_tdiff)<20))) return 0;
 
@@ -589,7 +631,6 @@ int bin_sicd(GEB_EVENT * GEB_event)
           {
             GidMul2->Fill(grh->gr[0].fhcrID,grh->gr[1].fhcrID);
           }
-            gMultiplicity->Fill(grh->ngam );
 
             for (j = 0; j < grh->ngam; j++)
             {
@@ -600,7 +641,6 @@ int bin_sicd(GEB_EVENT * GEB_event)
                 if((grh->gr[j].fhcrID==109)) continue;
                  if(grh->gr[j].fhcrID==117) continue;
 
-//                  if(j==0) output1 << grh->gr[j].fhcrID << "\t" << grh->gr[j].x0 << "\t" << grh->gr[j].y0 << "\t" << grh->gr[j].z0 << endl;
 
                   //-----------------[GRETINA-SiCD TIMING Variables]---------------------|
                   /*
@@ -633,8 +673,8 @@ int bin_sicd(GEB_EVENT * GEB_event)
                 
                   float cos_GPb =  cos_Gamma_Recoil(degtheta_Pb_calculated,  Phi_Si,  theta_G,  phi_G); // MAYBE Fix the particle theta and phi.
 
-                  double betaCalculated = sqrt((2*truebeamENG)/(109.9030021*931.49410242));
-\
+                  double betaCalculated = sqrt((2*(SiCD_event.calE_ring/1000.0)*4.937)/(109.9030021*931.49410242));
+
                   float gamma_sq_Pb = 1.0 - (betaCalculated * betaCalculated);
 
                   doppler_factor_Pb[j] = (sqrt (gamma_sq_Pb))/((1.0 - (betaCalculated * cos_GPb)));
@@ -644,96 +684,46 @@ int bin_sicd(GEB_EVENT * GEB_event)
 
                   //==================================================[Doppler Correction Applications to Corrections to Data]==================================================|
 
-                  /*
-                  double delTX,delTY=0;
-                  double dely =-10;
-                  double delx =-10;
+/*
+                  double delE=4.0;
+                  double delx=40000;
 
-                  if(grh->gr[j].fhcrID==119)
-                  {
-                    while(delx<=10)
-                    {
-                      ++delx/10;
-
-                      delTX = delx;
-                      dely=-10;
-
-                      while(dely<=10)
+                
+                  while(delE<=4.5 && (id_ring == 5 || id_ring == 4))
                       {
-                        ++dely/10;
 
-                        delTY = dely;
-
-                        double X_adj=X_Si+delTX;
-                        double Y_adj=Y_Si+delTY;
-
-                        double Phi_Si_adj = atan2f(Y_adj,X_adj);
-
-                        double r_sph_adj = sqrt(pow(X_adj,2)+pow(Y_adj,2)+pow(40.0,2));
-                                      
-                        double degtheta_Pb_calculated_adj=TMath::Pi()-(acosf(40.0/(r_sph_adj)));
-
-                        double Ebeam_adj = (A*pow((degtheta_Pb_calculated_adj)*TMath::RadToDeg(),4) + B*pow((degtheta_Pb_calculated_adj)*TMath::RadToDeg(),3) + C*pow((degtheta_Pb_calculated_adj)*TMath::RadToDeg(),2)+ D*pow((degtheta_Pb_calculated_adj*TMath::RadToDeg()),1) + E )*109.9030021; 
-                        double SRIMCalENG_adj = a4 + a1*pow(Ebeam_adj,1)+a2*pow(Ebeam_adj,2)+a3*pow(Ebeam_adj,3);
-                        double truebeamENG_adj = Ebeam_adj - SRIMCalENG_adj*(0.25/cosf(TMath::Pi()-degtheta_Pb_calculated_adj));
-
-                        double betaCalculated_adj = sqrt((2*truebeamENG_adj)/(109.9030021*931.49410242));
-
-                        float gamma_sq_Pb_adj = 1.0 - (betaCalculated_adj * betaCalculated_adj);
-
-                        float cos_GPb_adj =  cos_Gamma_Recoil(degtheta_Pb_calculated_adj,  Phi_Si_adj,  theta_G,  phi_G); // MAYBE Fix the particle theta and phi.
-
-                        float doppler_factor_adj = (sqrt (gamma_sq_Pb_adj))/((1.0 - (betaCalculated_adj * cos_GPb_adj)));
-                        OptimalXY->Fill(delTX,delTY,((grh->gr[j].esum/doppler_factor_adj)*Pars.CCcal_gain[grh->gr[j].fhcrID]+Pars.CCcal_offset[grh->gr[j].fhcrID]));
-                      }
-                    }
-
-                  }
-                  */
-
-                  double delE=0;
-
-                  if(grh->gr[j].fhcrID==119 && id_ring==4)
-                  {
-                      while(delE<=4)
-                      {
-                      ++delE/1000;
-                        
-                        double betaCalculated_adj = sqrt((2*(SiCD_event.calE_ring*delE))/(109.9030021*931.49410242));
+                        double betaCalculated_adj = sqrt((2*((SiCD_event.calE_ring/1000.0)*delE))/(109.9030021*931.49410242));
 
                         float gamma_sq_Pb_adj = 1.0 - (betaCalculated_adj * betaCalculated_adj);
 
                         float doppler_factor_adj = (sqrt (gamma_sq_Pb_adj))/((1.0 - (betaCalculated_adj * cos_GPb)));
+                        //if(gamma_sq_Pb_adj>=0 && grh->gr[j].fhcrID==119 && id_ring == 5)OptimalE5->Fill(delE,((grh->gr[j].esum/doppler_factor_adj)*Pars.CCcal_gain[grh->gr[j].fhcrID]+Pars.CCcal_offset[grh->gr[j].fhcrID]));
+                        if(gamma_sq_Pb_adj>=0 && grh->gr[j].fhcrID==119 && id_ring == 4)OptimalE4->Fill(delE,((grh->gr[j].esum/doppler_factor_adj)*Pars.CCcal_gain[grh->gr[j].fhcrID]+Pars.CCcal_offset[grh->gr[j].fhcrID]));
+                        
 
-                        OptimalE->Fill(delE,((grh->gr[j].esum/doppler_factor_adj)*Pars.CCcal_gain[grh->gr[j].fhcrID]+Pars.CCcal_offset[grh->gr[j].fhcrID]));
+                        ++delx;
+                        delE = delx/10000.0;
                       }
-                  }
+                  */
 
           
                 //==================================================[Doppler Correction Applications to Corrections to Data]==================================================|
 
-
-
-                //===================================================[Fusion Evaporation Spectrum]===================================================|        
-                if(((SiCD_event.calE_sector<=4000)&&(SiCD_event.calE_ring<=4000)))
-                {
-                  beta_C = sqrt((2*467.2)/(109.9030021*931.49410242));
+               //===================================================[208-Pb Spectrum]===================================================|        
 
                   float gamma_sq_C = 1.0 - (beta_C * beta_C);
 
-                  float cos_GC =  cos_Gamma_Recoil(0, 0,  theta_G,  phi_G); // MAYBE Fix the particle theta and phi.
+                  float cos_GC =  cos_Gamma_Recoil(SiCD_event.theta_C, SiCD_event.phi_C,  theta_G,  phi_G); // MAYBE Fix the particle theta and phi.
 
                   doppler_factor_C[j] = (sqrt (gamma_sq_C))/((1.0 - (beta_C * cos_GC)));
 
                   LabEnoTG_C->Fill(((grh->gr[j].esum/doppler_factor_C[j])*Pars.CCcal_gain[grh->gr[j].fhcrID]+Pars.CCcal_offset[grh->gr[j].fhcrID]));
 
-                }
-
                   if((gtsi_diff>-20 && gtsi_diff<320)&& (gtri_diff>-20 && gtri_diff<320)) LabEinTG_C->Fill(((grh->gr[j].esum/doppler_factor_C[j])*Pars.CCcal_gain[grh->gr[j].fhcrID]+Pars.CCcal_offset[grh->gr[j].fhcrID]));
                   if((abs(gtsi_diff)>400 && abs(gtsi_diff)<550)&& (abs(gtri_diff)>400 && abs(gtri_diff<550))) LabEoffTG_C->Fill(((grh->gr[j].esum/doppler_factor_C[j])*Pars.CCcal_gain[grh->gr[j].fhcrID]+Pars.CCcal_offset[grh->gr[j].fhcrID]));
 
 
-                //===================================================[Fusion Evaporation Spectrum]===================================================| 
+                //===================================================[208-Pb Spectrum]===================================================| 
 
 
                 //===================================================[110Cd Particle Energy Gated Spectrum]===================================================|
@@ -752,6 +742,11 @@ int bin_sicd(GEB_EVENT * GEB_event)
                     if((gtsi_diff>-20 && gtsi_diff<320)&& (gtri_diff>-20 && gtri_diff<320)) LabEinTG->Fill(((grh->gr[j].esum/doppler_factor_Pb[j])*Pars.CCcal_gain[grh->gr[j].fhcrID]+Pars.CCcal_offset[grh->gr[j].fhcrID])); 
                     if((abs(gtsi_diff)>400 && abs(gtsi_diff)<550)&& (abs(gtri_diff)>400 && abs(gtri_diff<550))) LabEoffTG->Fill((((grh->gr[j].esum/doppler_factor_Pb[j])*Pars.CCcal_gain[grh->gr[j].fhcrID]+Pars.CCcal_offset[grh->gr[j].fhcrID])));
                     
+                    LabEnoTGF->Fill(((grh->gr[j].esum/doppler_factor_Pb[j])*Pars.CCcal_gain[grh->gr[j].fhcrID]+Pars.CCcal_offset[grh->gr[j].fhcrID]));
+                    if((gtsi_diff>-20 && gtsi_diff<320)&& (gtri_diff>-20 && gtri_diff<320)) LabEinTGF->Fill(((grh->gr[j].esum/doppler_factor_Pb[j])*Pars.CCcal_gain[grh->gr[j].fhcrID]+Pars.CCcal_offset[grh->gr[j].fhcrID])); 
+                    if((abs(gtsi_diff)>400 && abs(gtsi_diff)<550)&& (abs(gtri_diff)>400 && abs(gtri_diff<550))) LabEoffTGF->Fill((((grh->gr[j].esum/doppler_factor_Pb[j])*Pars.CCcal_gain[grh->gr[j].fhcrID]+Pars.CCcal_offset[grh->gr[j].fhcrID])));
+                    
+
                    //===================================================[110Cd Particle Time Gated Spectrum]===================================================|
                     
                     doppE_anglePb->Fill(cos_GPb, ((grh->gr[j].esum/doppler_factor_Pb[j])*Pars.CCcal_gain[grh->gr[j].fhcrID]+Pars.CCcal_offset[grh->gr[j].fhcrID]));
@@ -802,6 +797,12 @@ int bin_sicd(GEB_EVENT * GEB_event)
                                                 ((grh->gr[l].esum/doppler_factor_Pb[l])*Pars.CCcal_gain[grh->gr[l].fhcrID]+Pars.CCcal_offset[grh->gr[l].fhcrID]));
                                               ggE->Fill(((grh->gr[l].esum/doppler_factor_Pb[l])*Pars.CCcal_gain[grh->gr[l].fhcrID]+Pars.CCcal_offset[grh->gr[l].fhcrID]),\
                                                 ((grh->gr[k].esum/doppler_factor_Pb[k])*Pars.CCcal_gain[grh->gr[k].fhcrID]+Pars.CCcal_offset[grh->gr[k].fhcrID]));
+                                              
+
+                                              ggEF->Fill(((grh->gr[k].esum/doppler_factor_Pb[k])*Pars.CCcal_gain[grh->gr[k].fhcrID]+Pars.CCcal_offset[grh->gr[k].fhcrID]),\
+                                                ((grh->gr[l].esum/doppler_factor_Pb[l])*Pars.CCcal_gain[grh->gr[l].fhcrID]+Pars.CCcal_offset[grh->gr[l].fhcrID]));
+                                              ggEF->Fill(((grh->gr[l].esum/doppler_factor_Pb[l])*Pars.CCcal_gain[grh->gr[l].fhcrID]+Pars.CCcal_offset[grh->gr[l].fhcrID]),\
+                                                ((grh->gr[k].esum/doppler_factor_Pb[k])*Pars.CCcal_gain[grh->gr[k].fhcrID]+Pars.CCcal_offset[grh->gr[k].fhcrID]));
         
                                             }
 
@@ -838,6 +839,7 @@ int bin_sicd(GEB_EVENT * GEB_event)
                                
                                 double gtsi_diff2 = abs(static_cast<Double_t>((grh->gr[l].timestamp/2)+gRandom->Uniform())*10 - SiCD_event.LEDts_sector-TS_adj);             
                                 double gtri_diff2 = abs(static_cast<Double_t>((grh->gr[l].timestamp/2)+gRandom->Uniform())*10 - SiCD_event.LEDts_ring-TS_adj);
+
                                 if(!(gtsi_diff2>400)&&(gtsi_diff2<550) && (gtri_diff2<400 && gtri_diff2<550)) continue;
 
                                 if (grh->gr[l].tracked)
@@ -858,7 +860,13 @@ int bin_sicd(GEB_EVENT * GEB_event)
                                           ((grh->gr[l].esum/doppler_factor_Pb[l])*Pars.CCcal_gain[grh->gr[l].fhcrID]+Pars.CCcal_offset[grh->gr[l].fhcrID]));
                                         ggEBK->Fill(((grh->gr[l].esum/doppler_factor_Pb[l])*Pars.CCcal_gain[grh->gr[l].fhcrID]+Pars.CCcal_offset[grh->gr[l].fhcrID]),\
                                           ((grh->gr[k].esum/doppler_factor_Pb[k])*Pars.CCcal_gain[grh->gr[k].fhcrID]+Pars.CCcal_offset[grh->gr[k].fhcrID]));    
-                                            
+                                        
+
+                                        ggEBKF->Fill(((grh->gr[k].esum/doppler_factor_Pb[k])*Pars.CCcal_gain[grh->gr[k].fhcrID]+Pars.CCcal_offset[grh->gr[k].fhcrID]),\
+                                          ((grh->gr[l].esum/doppler_factor_Pb[l])*Pars.CCcal_gain[grh->gr[l].fhcrID]+Pars.CCcal_offset[grh->gr[l].fhcrID]));
+                                        ggEBKF->Fill(((grh->gr[l].esum/doppler_factor_Pb[l])*Pars.CCcal_gain[grh->gr[l].fhcrID]+Pars.CCcal_offset[grh->gr[l].fhcrID]),\
+                                          ((grh->gr[k].esum/doppler_factor_Pb[k])*Pars.CCcal_gain[grh->gr[k].fhcrID]+Pars.CCcal_offset[grh->gr[k].fhcrID]));    
+                                          
                                       }
                                       //===================================================[110Cd Particle Energy Gated Spectrum]===================================================|
 
