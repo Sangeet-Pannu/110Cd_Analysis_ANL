@@ -1,0 +1,231 @@
+
+# NOTE: both the input (geb or file) and
+# the output (rootfile or mapfile)
+# are now specified on the command line of GEBSort
+# all other parameters are specified in this chat file
+
+;DumpEvery 5
+
+
+#-------------------------------------------
+# basic sort parameters 
+
+nevents           100000000
+maxDataTime       86400
+#                 ^^ in seconds  fe 60*60*24 Total time in a day
+
+printevents       0
+beta              0.03
+modwrite          10
+tsnumwrites       0
+gglen             3000
+#  +--- simple TS time window Time window was 300 mico-seconds
+timewin           10000 
+;TST0lims          -500 500
+#  +--- fine TS+T0 window, only affects mode2 data
+#
+#       same limits should be applied in tracking
+
+;waitfordata 60
+
+#-----------------------------------------------
+# select what to work on
+
+;bin_mode1
+;bin_mode2
+;bin_mode3
+;bin_dgs
+;bin_dub
+;bin_linpol
+;bin_template
+;bin_angcor_GT
+;bin_DCO_GT
+;bin_angcor_DGS
+;bin_angdis
+;bin_dfma
+;bin_final
+;bin_ndc
+;bin_chico2
+bin_sicd
+
+#-------------------------------------------
+# angular correlation parameters 
+
+;angcor_useplaneang
+
+#         + 1'th gamma ray energy
+#         |    + 2'nd gamma ray energy
+#         |    |   +  1'th background
+#         |    |   |   + 2'nd background
+#         |    |   |   |  + gate width +/-
+#         |    |   |   |  |  + cluster hole cut angle
+#DCO_par  523  444 459 503 2 18.5
+
+#-------------------------------------------
+#linear polarization parameters (for bin_linpol)
+# mm, deg, kev units
+# use 'linpol_source' for sources
+# use 'linpol_random' for inbeam
+
+linpol_rr 10 100
+linpol_polang 70 110
+linpol_scatang 70 110
+linpol_nlim 2 4
+;linpol_source 1173 2
+;linpol_random
+;linpol_ngmin 0
+
+
+##########################################
+#target position (in mm)
+
+target_x 0
+target_y 0
+target_z 0
+
+#################################################
+# double gates for gg (Amel addition) (for bin_mode1)
+#################################################
+# 
+;gg-gates ggfile.gat
+
+# gate file has one line per gate
+# with 'gate position' and '+/- gate width'
+
+#----------------------------------------------
+# enabled list, only affects mode2 data. For mode1
+# data, specify in track_GT.chat. also used in bin_dgs
+
+enabled "1-200"
+#enabled "1-13,15-19,21-39,41-49,51-59,61-102,104-110"
+
+#################################################
+# data type; default is GRETINA
+# but you can specify AGATA_data
+# for GEANT4 AGATA simulated data, DO NOT SPECIFY 
+#   the AGATA rotational matrices!!!!!!
+#################################################
+
+;AGATA_data GSI_AGATA_crmat.dat
+
+#-------------------------------------------
+# mode2 calibration pars. 
+# Please note: This only affects
+# mode2 data. Mode1 data is calibrated in the
+# tracking code if necessary;
+
+CCcal 110Cd_Calibration_final.txt
+;SEGcal SEGenergy.cal
+
+#---------------------------------
+# specify beam direction in GT cord system
+
+;-- normal setup
+beamdir 0 0 1
+
+;-- for BGS setup
+;beamdir 0.2764 0.8507 -0.4472
+
+;-- for AGATA at Ganil Novembre 2014
+;beamdir .4277991913 -.5630163332 .7071067809
+
+#----------------------------
+# mode 1 data sort parameters 
+#----------------------------
+
+#---------------------------------
+# number of interactions range we allow
+# 1: single interaction
+# 2: double interaction
+# etc
+
+ndetlimits 1 8
+
+#---------------------------------
+# mode1 and mode2 multiplicity limits
+# does not affect all spectra. This condition
+# is applied to the mode1 data. It is also applied
+# to the CC gg matrix, event though it not really
+# the same thing...
+
+multlims 1 20
+
+#---------------------------------
+# Figure of Merit limits for some spectra
+# and the gg gamma-gamma matrix
+#
+#         +-- for this ndet value (number of sectors that fired)
+#         |  +-- lower FOM limit
+#         |  |   +-- upper FOM limit
+#         |  |   |
+fomlimits 1 0.0 0.8
+fomlimits 2 0.0 0.8
+fomlimits 3 0.0 0.8
+fomlimits 4 0.0 0.8
+fomlimits 5 0.0 0.8
+fomlimits 6 0.0 0.8
+fomlimits 7 0.0 0.8
+
+#---------------------------------------------------
+# special for data that already has world coordinates
+
+;nocrystaltoworldrot
+
+#---------------------------------------------------
+# make 3D crystal plot
+#
+#           +---- crystal ID
+#           | +---- min e
+#           | |    +--- max e
+#           | |    |  +--- min fom
+#           | |    |  | +--- max fom
+crystalID3D 33 0 4000 0 2
+
+#-----------------------------------------------------
+# y offset file for GT when the two hemi's are not closed [in mm]
+# format: id xoff yoff zoff
+
+;xyzoffset xyzoffset.dat
+
+
+#-----------------------------------------------------
+# parameters for bin_dgs
+
+# algo 0: old SZ. Requres: header type 3/4 or 5/6 and dgs_MM
+# algo 1: simple SZ algo. Requires: dgs_PZ
+# algo 2: high rate algo. Requires: dgs_PZ, dgs_factor, t1 and t2 
+#         extrapolation below t2. Factor sampled bt t2...t1 (t1>t2)
+
+dgs_algo    2
+dgs_MM      200
+dgs_KK      141
+dgs_SZ_t1   50
+dgs_SZ_t2   20
+dgs_PZ      dgs_pz.cal
+dgs_ecal    dgs_ehi.cal
+dgs_factor  dgs_factor.dat
+
+dub_MM  200
+dub_PP  400
+
+#------------------------------------------------------
+# Parameters for tape station/beta decay
+# At least one must be enabled for tape 
+# station spectra to be generated.
+
+# beta-gamma coincidence window
+#decay_station_bg  -10    40
+
+# max time bt gammas in decay station 2D matrices
+#decay_station_ggdt 20
+
+# gg decay time gate
+# the time window in which we see decays vrt to last tape move
+#decay_station_gt1  10    617
+#decay_station_gt2  620   892
+#decay_station_gt3  1000 3000
+
+#------------------------------------------------------
+
+
+exit
